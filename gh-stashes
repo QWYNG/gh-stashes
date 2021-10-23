@@ -1,35 +1,44 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Hello gh-stashes!"
+help() {
+  cat <<EOF
+Usage: gh stashes
+Displays an interactive stash selector that lists your stashes with preview that display 'git show -p -G<QUERY> <SELECTED_STASH>'
+The selected stash is applied.
+Dependencies: fzf
+EOF
+}
 
-# Snippets to help get started:
+case "$1"
+in -h | --help)
+  help
+  exit 0
+esac
 
-# Determine if an executable is in the PATH
-# if ! type -p ruby >/dev/null; then
-#   echo "Ruby not found on the system" >&2
-#   exit 1
-# fi
+if ! type -p fzf >/dev/null; then
+  echo "error: install \`fzf\` to use this command" >&2
+  exit 1
+fi
 
-# Pass arguments through to another command
-# gh issue list "$@" -R cli/cli
+choose_stash() {
+  local git_stash_list='git stash list'
+  local extract_stash_name="grep  -o '^\(.*\)}'"
+  local check_empty_string="grep '.'"
+  local preview_command=$(cat <<- EOD
+    git stash show --color -G{q} -p (echo {} | $extract_stash_name) | $check_empty_string ||
+    git stash show --color -p  (echo {} | $extract_stash_name | $check_empty_string || echo 'unmatched. raise error' ) 2>/dev/null
+EOD
+)
 
-# Using the gh api command to retrieve and format information
-# QUERY='
-#   query($endCursor: String) {
-#     viewer {
-#       repositories(first: 100, after: $endCursor) {
-#         nodes {
-#           nameWithOwner
-#           stargazerCount
-#         }
-#       }
-#     }
-#   }
-# '
-# TEMPLATE='
-#   {{- range $repo := .data.viewer.repositories.nodes -}}
-#     {{- printf "name: %s - stargazers: %v\n" $repo.nameWithOwner $repo.stargazerCount -}}
-#   {{- end -}}
-# '
-# exec gh api graphql -f query="${QUERY}" --paginate --template="${TEMPLATE}"
+  FZF_DEFAULT_COMMAND="$git_stash_list --color" \
+  fzf --bind "change:reload:echo 'if [ -z {q} ]; then $git_stash_list; else $git_stash_list -G{q}; fi' | bash || true" \
+        --ansi --disabled \
+        --preview "$preview_command" \
+        --preview-window '60%' \
+  | eval "$extract_stash_name"
+}
+
+selected_stash="$(choose_stash)"
+[ -n "$selected_stash" ] || exit 1
+git stash apply "$selected_stash"
