@@ -1,6 +1,7 @@
 # `gh stashes` GitHub CLI extension
 
 [GitHub CLI](https://github.com/cli/cli) extension for search your stash list and apply it.
+![demo](https://user-images.githubusercontent.com/16704596/138599793-43f1496f-a7a9-4bb6-a2b6-f9fe446ff2ed.gif)
 
 ## Installation
 ```
